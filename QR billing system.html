@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Billing System - AN MART</title>
+  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    header {
+      background: #333;
+      color: #fff;
+      padding: 15px;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    #reader {
+      width: 320px;
+      margin: 20px auto;
+      border: 3px solid #333;
+      border-radius: 12px;
+      background: white;
+      display: none; /* hidden until scan starts */
+    }
+    table {
+      width: 90%;
+      margin: 20px auto;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
+    }
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background: #333;
+      color: white;
+    }
+    tr:hover {
+      background: #f1f1f1;
+    }
+    #total {
+      font-size: 20px;
+      margin: 20px;
+      font-weight: bold;
+      color: #333;
+    }
+    button {
+      background: #333;
+      color: #fff;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    button:hover {
+      background: #555;
+    }
+
+    /* Printable bill styling */
+    #bill-header {
+      display: none;
+      margin-top: 20px;
+      font-size: 22px;
+      font-weight: bold;
+      text-align: center;
+      color: #000;
+    }
+    #bill-date {
+      display: none;
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: #333;
+    }
+    #thankyou {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+      font-size: 16px;
+      font-style: italic;
+    }
+
+    /* Hide scanner and buttons in PDF */
+    @media print {
+      #reader, button, header {
+        display: none !important;
+      }
+      body {
+        background: white;
+      }
+      table {
+        width: 100%;
+        box-shadow: none;
+      }
+      #bill-header, #bill-date, #thankyou {
+        display: block !important;
+      }
+      #total {
+        font-size: 22px;
+        margin-top: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>📦 QR Billing System</header>
+
+  <button onclick="startScan()">📷 Scan Product</button>
+  <button onclick="stopScan()">⏹ Stop Scanning</button>
+  <div id="reader"></div>
+
+  <!-- Bill Header (only shown in PDF) -->
+  <div id="bill-header">🛒 AN MART</div>
+  <div id="bill-date"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Product ID</th>
+        <th>Name</th>
+        <th>Price (₹)</th>
+      </tr>
+    </thead>
+    <tbody id="bill"></tbody>
+  </table>
+
+  <div id="total">Total: ₹0</div>
+
+  <button onclick="clearBill()">🗑 Clear Bill</button>
+  <button onclick="savePDF()">💾 Save as PDF</button>
+
+  <div id="thankyou">🙏 Thank you for shopping at AN MART!</div>
+
+  <script>
+    let total = 0;
+    let html5QrCode;
+
+    function addProductToBill(pid, name, price) {
+      const billTable = document.getElementById("bill");
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${pid}</td>
+        <td>${name}</td>
+        <td>${price}</td>
+      `;
+      billTable.appendChild(row);
+
+      total += price;
+      document.getElementById("total").innerText = "Total: ₹" + total;
+    }
+
+    function clearBill() {
+      document.getElementById("bill").innerHTML = "";
+      total = 0;
+      document.getElementById("total").innerText = "Total: ₹0";
+    }
+
+    function savePDF() {
+      const now = new Date();
+      document.getElementById("bill-date").innerText =
+        "Date: " + now.toLocaleDateString() + " | Time: " + now.toLocaleTimeString();
+
+      window.print(); // Save as PDF
+
+      setTimeout(() => clearBill(), 1500); // clear bill after saving
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+      const parts = decodedText.split("|");
+      if (parts.length === 3) {
+        const [pid, name, price] = parts;
+        addProductToBill(pid, name, parseFloat(price));
+      }
+
+      // 🔹 Stop scanning immediately after one product
+      stopScan();
+    }
+
+    function startScan() {
+      document.getElementById("reader").style.display = "block";
+
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
+      }
+
+      Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length) {
+          html5QrCode.start(
+            devices[0].id,
+            { fps: 10, qrbox: 250 },
+            onScanSuccess
+          );
+        } else {
+          alert("No camera found!");
+        }
+      }).catch(err => {
+        console.error(err);
+        alert("Camera access denied or not available.");
+      });
+    }
+
+    function stopScan() {
+      if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+          document.getElementById("reader").style.display = "none";
+        }).catch(err => console.error("Stop failed", err));
+      }
+    }
+  </script>
+
+</body>
+</html>
+
